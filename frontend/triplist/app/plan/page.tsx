@@ -14,6 +14,9 @@ export default function Plan() {
   const [selectedCountry, setSelectedCountry] = useState<ICountry | undefined>(
     undefined
   );
+  const [selectedState, setSelectedState] = useState<IState | undefined>(
+    undefined
+  );
   const [states, setStates] = useState<IState[]>([]);
   const [cities, setCities] = useState<ICity[]>([]);
 
@@ -26,11 +29,22 @@ export default function Plan() {
 
   const handleStateChange = (stateCode: string) => {
     if (!selectedCountry) return;
+    setSelectedState(
+      State.getStateByCodeAndCountry(stateCode, selectedCountry.isoCode)
+    );
     const selectedCities = City.getCitiesOfState(
       selectedCountry?.isoCode,
       stateCode
     );
     setCities(selectedCities);
+  };
+
+  const handleSubmit = () => {
+    console.log("Selected Country:", selectedCountry);
+    console.log("Selected States:", selectedState);
+    console.log("Selected Cities:", cities);
+
+    //need a usestate for the date as well
   };
 
   return (
@@ -58,7 +72,11 @@ export default function Plan() {
         <DateRangePicker />
       </div>
 
-      <Button className="mt-16 flex flex-row items-center" size="lg">
+      <Button
+        onClick={handleSubmit}
+        className="mt-16 flex flex-row items-center"
+        size="lg"
+      >
         Submit <Plane />
       </Button>
     </div>
