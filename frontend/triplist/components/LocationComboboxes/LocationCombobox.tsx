@@ -29,7 +29,7 @@ export function LocationCombobox({
 }: {
   locations: ICountry[] | IState[] | ICity[];
   label: string;
-  onChange?: (value: string) => void;
+  onChange?: (value: string) => void | ((value: ICity) => void);
   disabled?: boolean;
 }) {
   const [open, setOpen] = React.useState(false);
@@ -62,7 +62,14 @@ export function LocationCombobox({
                   key={location.name}
                   value={location.name}
                   onSelect={(currentValue) => {
-                    if (onChange && "isoCode" in location && location.isoCode) {
+                    if (label === "city") {
+                      // @ts-expect-error - ICity is fine here
+                      onChange?.(location);
+                    } else if (
+                      onChange &&
+                      "isoCode" in location &&
+                      location.isoCode
+                    ) {
                       onChange(location.isoCode);
                     }
                     setValue(currentValue === value ? "" : currentValue);
