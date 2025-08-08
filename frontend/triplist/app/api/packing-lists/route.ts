@@ -8,12 +8,6 @@ import OpenAI from "openai";
 
 
 export const GET = auth(async function GET(req) {
-  // Ensure the user is authenticated
-  // if (!req.auth)
-  //   return NextResponse.json({ message: "Not authenticated" }, { status: 401 });
-
-  console.log(req.auth?.user?.id);
-
   try {
     const c = await client;
     const db = c.db(process.env.MONGODB_DB);
@@ -43,7 +37,7 @@ export const POST = auth(async function POST(req) {
       baseURL: "https://openrouter.ai/api/v1",
       apiKey: process.env.OPENROUTER_API_KEY,
     });
-    const { latitude: latitude_req, longitude: longitude_req } =
+    const { latitude: latitude_req, longitude: longitude_req, location_name } =
       await req.json();
 
     const params = {
@@ -84,7 +78,7 @@ export const POST = auth(async function POST(req) {
         {
           role: "system",
           content:
-            "You are a helpful assistant helping a user pack for their trip. You will be provided the location and weather, please generate a list of things for the user to pack (as an array of strings with no additonal text styling) and a quick summary of the reasoning for the items (as a string called 'context'). There should be no text styling including new line characters in the response, just a JSON object with the two fields.",
+            "You are a helpful assistant helping a user pack for their trip. You will be provided the location and weather, please generate a list of things for the user to pack (as an array of strings with no additonal text styling) and a quick summary of the reasoning for the items (as a string called 'context'). There should be no text styling including new line characters in the response, just a JSON object with the two fields. Try to add an emoji next to each item",
         },
         {
           role: "user",
@@ -117,8 +111,8 @@ export const POST = auth(async function POST(req) {
           },
         },
       },
-    })) as any;
-
+    })) as unknown;
+    // @ts-expect-error - OpenAI types are not fully compatible with OpenRouter
     const res = completion.choices[0].message.content;
     console.log(res);
     const parsedRepsonse = JSON.parse(res);
@@ -132,6 +126,7 @@ export const POST = auth(async function POST(req) {
     const result = await db.collection("packing-lists").insertOne({
       itemList: mappedItemList,
       context: parsedRepsonse.context,
+      location: location_name,
       userId: new ObjectId(req.auth?.user?.id),
     });
 

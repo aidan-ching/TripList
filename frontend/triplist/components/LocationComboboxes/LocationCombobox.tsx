@@ -63,7 +63,6 @@ export function LocationCombobox({
                   value={location.name}
                   onSelect={(currentValue) => {
                     if (label === "city") {
-                      // @ts-expect-error - ICity is fine here
                       onChange?.(location);
                     } else if (
                       onChange &&

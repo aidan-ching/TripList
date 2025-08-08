@@ -3,14 +3,11 @@
 import { LocationCombobox } from "@/components/LocationComboboxes/LocationCombobox";
 
 import { useState } from "react";
-import { useRouter } from 'next/navigation'
+import { useRouter } from "next/navigation";
 import { Country, State, City } from "country-state-city";
 import { ICountry, IState, ICity } from "country-state-city";
-import { DateRangePicker } from "@/components/ui/date-range-picker";
 import { Button } from "@/components/ui/button";
-import { Plane } from "lucide-react";
-
-import { DateRange } from "react-day-picker";
+import { Plane, Loader2Icon } from "lucide-react";
 
 export default function Plan() {
   const router = useRouter();
@@ -27,10 +24,7 @@ export default function Plan() {
   const [states, setStates] = useState<IState[]>([]);
   const [cities, setCities] = useState<ICity[]>([]);
 
-  const [dateRange, setDateRange] = useState<DateRange | undefined>({
-    from: new Date(),
-    to: new Date(),
-  });
+  const [isLoading, setIsLoading] = useState(false);
 
   const handleCountryChange = (countryCode: string) => {
     const selectedStates = State.getStatesOfCountry(countryCode);
@@ -60,29 +54,6 @@ export default function Plan() {
 
   const handleSubmit = async () => {
     const selectedLocation = selectedCity ?? selectedState ?? selectedCountry;
-    if (!selectedLocation) {
-      console.error("No location selected");
-      return;
-    }
-    const res = await fetchData(
-      // @ts-expect-error stuff
-      selectedLocation.longitude,
-      selectedLocation.latitude
-    );
-    console.log("Response from fetchData:", res);
-     router.push(`/plan/${res.id}`)
-  };
-
-  const handleDateUpdate = (values: {
-    range: DateRange;
-    rangeCompare?: DateRange;
-  }) => {
-    const { range } = values;
-    setDateRange(range);
-  };
-
-  async function fetchData(longitude: string, latitude: string) {
-    const selectedLocation = selectedCity ?? selectedState ?? selectedCountry;
     if (
       !selectedLocation ||
       !selectedLocation.latitude ||
@@ -91,7 +62,25 @@ export default function Plan() {
       console.error("Selected location does not have latitude/longitude");
       return;
     }
+    if (!selectedLocation) {
+      console.error("No location selected");
+      return;
+    }
+    setIsLoading(true);
+    const res = await fetchData(
+      selectedLocation.longitude,
+      selectedLocation.latitude,
+      selectedLocation.name
+    );
+    console.log("Response from fetchData:", res);
+    router.push(`/plan/${res.id}`);
+  };
 
+  async function fetchData(
+    longitude: string,
+    latitude: string,
+    location_name: string
+  ) {
     const data = await fetch("/api/packing-lists", {
       method: "POST",
       headers: {
@@ -100,6 +89,7 @@ export default function Plan() {
       body: JSON.stringify({
         latitude,
         longitude,
+        location_name,
       }),
     });
     const res = await data.json();
@@ -107,38 +97,84 @@ export default function Plan() {
   }
 
   return (
-    <div className="w-screen flex flex-col items-center gap-5 ">
-      <div className="text-3xl font-semibold">Where to next?</div>
-      <div className="flex flex-row gap-5">
-        <LocationCombobox
-          locations={countries}
-          label="country"
-          onChange={handleCountryChange}
-        />
+    <div className="container mx-auto min-h-[80vh] py-12 px-4">
+      <div className="max-w-4xl mx-auto">
+        <div className="text-center space-y-4 mb-12">
+          <h1 className="text-4xl font-bold tracking-tight">Where to next?</h1>
+          <p className="text-muted-foreground text-lg">
+            Select your destination and we&apos;ll help you pack for your trip
+          </p>
+        </div>
 
-        <LocationCombobox
-          locations={states}
-          label="state"
-          disabled={states.length === 0}
-          onChange={handleStateChange}
-        />
+        <div className="bg-card border rounded-xl shadow-sm p-8">
+          <div className="max-w-3xl mx-auto">
+            <div className="flex flex-row w-full justify-between mb-13">
+              <div className="space-y-2">
+                <LocationCombobox
+                  locations={countries}
+                  label="Country"
+                  onChange={handleCountryChange}
+                />
+                {selectedCountry && (
+                  <p className="text-sm text-muted-foreground px-2">
+                    Selected: {selectedCountry.name}
+                  </p>
+                )}
+              </div>
 
-        <LocationCombobox
-          locations={cities}
-          label="city"
-          disabled={cities.length === 0}
-          onChange={handleCityChange}
-        />
-        
+              <div className="space-y-2">
+                <LocationCombobox
+                  locations={states}
+                  label="State/Province"
+                  disabled={states.length === 0}
+                  onChange={handleStateChange}
+                />
+                {selectedState && (
+                  <p className="text-sm text-muted-foreground px-2">
+                    Selected: {selectedState.name}
+                  </p>
+                )}
+              </div>
+
+              <div className="space-y-2">
+                <LocationCombobox
+                  locations={cities}
+                  label="City"
+                  disabled={cities.length === 0}
+                  // @ts-expect-error - City type does not match expected type
+                  onChange={handleCityChange}
+                />
+                {selectedCity && (
+                  <p className="text-sm text-muted-foreground px-2">
+                    Selected: {selectedCity.name}
+                  </p>
+                )}
+              </div>
+            </div>
+
+            <div className="flex justify-center">
+              <Button
+                onClick={handleSubmit}
+                size="lg"
+                disabled={isLoading}
+                className="min-w-[200px] h-12"
+              >
+                {isLoading ? (
+                  <>
+                    Generating List
+                    <Loader2Icon className="ml-2 h-4 w-4 animate-spin" />
+                  </>
+                ) : (
+                  <>
+                    Create Packing List
+                    <Plane className="ml-2 h-4 w-4" />
+                  </>
+                )}
+              </Button>
+            </div>
+          </div>
+        </div>
       </div>
-
-      <Button
-        onClick={handleSubmit}
-        className="mt-16 flex flex-row items-center"
-        size="lg"
-      >
-        Submit <Plane />
-      </Button>
     </div>
   );
 }

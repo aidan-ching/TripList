@@ -19,8 +19,6 @@ import {
 export default async function Header() {
   const session = await auth();
 
-  console.log("Session:", session);
-
   return (
     <div className="flex flex-row justify-between items-center m-6 mb-28">
       <Link
@@ -45,15 +43,18 @@ export default async function Header() {
             <DropdownMenuContent>
               <DropdownMenuLabel>{session.user.name}</DropdownMenuLabel>
               <DropdownMenuSeparator />
-              <DropdownMenuItem>Profile</DropdownMenuItem>
-              <DropdownMenuItem>
+              <DropdownMenuItem asChild>
+                <Link href="/profile">Profile</Link>
+              </DropdownMenuItem>
+              <DropdownMenuItem asChild>
                 <form
+                  className="w-full"
                   action={async () => {
                     "use server";
                     await signOut();
                   }}
                 >
-                  <button type="submit">Sign Out</button>
+                  <button type="submit" className="w-full text-left">Sign Out</button>
                 </form>
               </DropdownMenuItem>
             </DropdownMenuContent>

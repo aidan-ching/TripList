@@ -1,44 +1,58 @@
-"use client";
-
-import { useEffect, useState } from "react";
-import { useParams } from "next/navigation";
 import { ObjectId } from "mongodb";
+import { CheckList } from "@/components/PackingList/CheckList";
+import { ShareButton } from "@/components/ShareButton";
+import client from "@/lib/db";
+import { notFound } from "next/navigation";
 
-export default function PlanId() {
-  const { planId } = useParams();
-  const [packingList, setPackingList] = useState<{
-    itemList: { label: string; checked: boolean };
-    context: string;
-    userId: ObjectId;
-  } | null>(null);
+interface PackingList {
+  _id: ObjectId;
+  itemList: { label: string; checked: boolean }[];
+  context: string;
+  userId: ObjectId;
+  location: string;
+}
 
-  useEffect(() => {
-    if (planId) {
-      fetch(`/api/packing-lists/${planId}`)
-        .then((res) => res.json())
-        .then((data) => setPackingList(data.data[0]))
-        .catch(() => setPackingList(null));
+async function getPackingList(planId: string): Promise<PackingList> {
+  try {
+    const c = await client;
+    const db = c.db(process.env.MONGODB_DB);
+    
+    const packingList = await db
+      .collection<PackingList>("packing-lists")
+      .findOne({
+        _id: new ObjectId(planId),
+      });
+
+    if (!packingList) {
+      notFound();
     }
-  }, [planId]);
+
+    return packingList;
+  } catch (error) {
+    console.error("Error fetching packing list:", error);
+    throw new Error("Failed to load packing list");
+  }
+}
+
+export default async function PlanId({params}: {params: Promise<{ planId: string }>}) {
+  const { planId } = await params;
+  const packingList = await getPackingList(planId);
 
   return (
-    <div className="w-screen flex flex-col items-center gap-10">
-      <h2 className="text-5xl font-medium">Packing List</h2>
-      {packingList ? (
-        <ul>
-          {Array.isArray(packingList.itemList) ? (
-            packingList.itemList.map((item, idx) => (
-              <li key={idx} className="flex items-center gap-2">
-                <label>{item.label}</label>
-              </li>
-            ))
-          ) : (<div/>)}
-        </ul>
-      ) : (
-        <p>Loading...</p>
-      )}
+    <div className="container mx-auto py-8 px-4">
+      <div className="max-w-3xl mx-auto space-y-8">
+        <div className="relative">
+          <div className="absolute right-0 top-2">
+            <ShareButton />
+          </div>
+          <div className="text-center space-y-4">
+            <h1 className="text-4xl font-bold">Your trip to {packingList.location}</h1>
+            <p className="text-muted-foreground">{packingList.context}</p>
+          </div>
+        </div>
 
-      <p>{packingList?.context}</p>
+        <CheckList planId={planId} initialItems={packingList.itemList} />
+      </div>
     </div>
   );
 }
