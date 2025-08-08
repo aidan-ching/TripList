@@ -115,11 +115,6 @@ export default function Plan() {
                   label="Country"
                   onChange={handleCountryChange}
                 />
-                {selectedCountry && (
-                  <p className="text-sm text-muted-foreground px-2">
-                    Selected: {selectedCountry.name}
-                  </p>
-                )}
               </div>
 
               <div className="space-y-2">
@@ -129,11 +124,6 @@ export default function Plan() {
                   disabled={states.length === 0}
                   onChange={handleStateChange}
                 />
-                {selectedState && (
-                  <p className="text-sm text-muted-foreground px-2">
-                    Selected: {selectedState.name}
-                  </p>
-                )}
               </div>
 
               <div className="space-y-2">
@@ -144,11 +134,6 @@ export default function Plan() {
                   // @ts-expect-error - City type does not match expected type
                   onChange={handleCityChange}
                 />
-                {selectedCity && (
-                  <p className="text-sm text-muted-foreground px-2">
-                    Selected: {selectedCity.name}
-                  </p>
-                )}
               </div>
             </div>
 
