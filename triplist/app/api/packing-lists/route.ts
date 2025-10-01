@@ -63,8 +63,7 @@ export const POST = auth(async function POST(req) {
       while (true) {
         try {
           return await fn();
-          // ts-expect-error - assume any error can be a 429
-        } catch (err: any) {
+        } catch (err) {
           attempt++;
           const is429 = err && (err.status === 429 || err.code === 429 || /rate limit/i.test(String(err)));
           if (!is429 || attempt > retries) throw err;
