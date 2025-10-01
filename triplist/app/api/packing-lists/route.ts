@@ -54,7 +54,30 @@ export const POST = auth(async function POST(req) {
       temperature_unit: "fahrenheit",
     };
     const url = "https://api.open-meteo.com/v1/forecast";
-    const responses = await fetchWeatherApi(url, params);
+    // Helper to retry async operations on 429 with exponential backoff + jitter
+    async function retryAsync<T>(
+      fn: () => Promise<T>,
+      { retries = 3, baseDelay = 500 }: { retries?: number; baseDelay?: number } = {}
+    ): Promise<T> {
+      let attempt = 0;
+      while (true) {
+        try {
+          return await fn();
+        } catch (err: any) {
+          attempt++;
+          const is429 = err && (err.status === 429 || err.code === 429 || /rate limit/i.test(String(err)));
+          if (!is429 || attempt > retries) throw err;
+          // exponential backoff with jitter
+          const backoff = Math.min(30000, baseDelay * 2 ** (attempt - 1));
+          const jitter = Math.floor(Math.random() * backoff);
+          const wait = Math.floor(backoff / 2 + jitter / 2);
+          console.warn(`Request rate-limited. Retry #${attempt} in ${wait}ms`);
+          await new Promise((r) => setTimeout(r, wait));
+        }
+      }
+    }
+
+    const responses = await retryAsync(() => fetchWeatherApi(url, params), { retries: 4, baseDelay: 400 });
 
     // Process first location. Add a for-loop for multiple locations or weather models
     const response = responses[0];
@@ -72,46 +95,49 @@ export const POST = auth(async function POST(req) {
       },
     };
 
-    const completion = (await openrouter.chat.completions.create({
-      model: "deepseek/deepseek-chat-v3-0324:free",
-      messages: [
-        {
-          role: "system",
-          content:
-            "You are a helpful assistant helping a user pack for their trip. You will be provided the location and weather, please generate a list of things for the user to pack (as an array of strings with no additonal text styling) and a quick summary of the reasoning for the items (as a string called 'context'). There should be no text styling including new line characters in the response, just a JSON object with the two fields. Try to add an emoji next to each item",
-        },
-        {
-          role: "user",
-          content:
-            "The user is going to a location with the following weather data: " +
-            JSON.stringify(weatherData),
-        },
-      ],
-      response_format: {
-        type: "json_schema",
-        json_schema: {
-          name: "PackingList",
-          strict: true,
-          schema: {
-            type: "object",
-            properties: {
-              itemList: {
-                type: "array",
-                items: { type: "string" },
-                description: "List of items to pack",
-              },
-              context: {
-                type: "string",
-                description: "Summary of reasoning for the items",
-              },
-            },
-            required: ["itemList", "context"],
-            additionalProperties: false,
+    const completion = (await retryAsync(() =>
+      // wrap OpenRouter call in retry to handle transient 429s
+      openrouter.chat.completions.create({
+        model: "deepseek/deepseek-chat-v3-0324:free",
+        messages: [
+          {
+            role: "system",
+            content:
+              "You are a helpful assistant helping a user pack for their trip. You will be provided the location and weather, please generate a list of things for the user to pack (as an array of strings with no additonal text styling) and a quick summary of the reasoning for the items (as a string called 'context'). There should be no text styling including new line characters in the response, just a JSON object with the two fields. Try to add an emoji next to each item",
+          },
+          {
+            role: "user",
+            content:
+              "The user is going to a location with the following weather data: " +
+              JSON.stringify(weatherData),
+          },
+        ],
+        response_format: {
+          type: "json_schema",
+          json_schema: {
+            name: "PackingList",
             strict: true,
+            schema: {
+              type: "object",
+              properties: {
+                itemList: {
+                  type: "array",
+                  items: { type: "string" },
+                  description: "List of items to pack",
+                },
+                context: {
+                  type: "string",
+                  description: "Summary of reasoning for the items",
+                },
+              },
+              required: ["itemList", "context"],
+              additionalProperties: false,
+              strict: true,
+            },
           },
         },
-      },
-    })) as unknown;
+      })
+    , { retries: 4, baseDelay: 600 })) as unknown;
     // @ts-expect-error - OpenAI types are not fully compatible with OpenRouter
     const res = completion.choices[0].message.content;
     const parsedRepsonse = JSON.parse(res);
