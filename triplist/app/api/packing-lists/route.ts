@@ -114,10 +114,7 @@ export const POST = auth(async function POST(req) {
     })) as unknown;
     // @ts-expect-error - OpenAI types are not fully compatible with OpenRouter
     const res = completion.choices[0].message.content;
-    console.log(res);
     const parsedRepsonse = JSON.parse(res);
-    console.log(parsedRepsonse);
-
     const mappedItemList = parsedRepsonse.itemList.map((item: string) => ({
       label: item,
       checked: false,

@@ -72,7 +72,6 @@ export default function Plan() {
       selectedLocation.latitude,
       selectedLocation.name
     );
-    console.log("Response from fetchData:", res);
     router.push(`/plan/${res.id}`);
   };
 
